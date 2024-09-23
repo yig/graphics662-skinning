@@ -38,23 +38,23 @@ FetchContent_Declare(
     )
 FetchContent_MakeAvailable( igl )
 
-FetchContent_Declare(
-    osqp
-    # URL https://github.com/osqp/osqp/archive/refs/tags/v0.6.3.zip
-    # URL_HASH SHA256=c554f3458164d6a7a5c3d2f1714f32ead3473b7e06d33ab4a93063639ccf8f93
-    GIT_REPOSITORY https://github.com/osqp/osqp
-    ## GIT_TAG v0.6.3
-    ## GIT_TAG 25b6b39247954b74bba17667863fe19e9a8b1ade
-    GIT_TAG c2c96983bdd7ef21f7982d8777274e3a13a5e4a4
-    GIT_SHALLOW FALSE
-    GIT_PROGRESS TRUE
-    OVERRIDE_FIND_PACKAGE
-    )
-set(OSQP_BUILD_SHARED_LIB OFF)
-set(OSQP_BUILD_DEMO_EXE OFF)
-set(OSQP_ENABLE_INTERRUPT OFF)
-FetchContent_MakeAvailable( osqp )
-add_library(osqp::osqp ALIAS osqpstatic)
+# FetchContent_Declare(
+#     osqp
+#     # URL https://github.com/osqp/osqp/archive/refs/tags/v0.6.3.zip
+#     # URL_HASH SHA256=c554f3458164d6a7a5c3d2f1714f32ead3473b7e06d33ab4a93063639ccf8f93
+#     GIT_REPOSITORY https://github.com/osqp/osqp
+#     ## GIT_TAG v0.6.3
+#     ## GIT_TAG 25b6b39247954b74bba17667863fe19e9a8b1ade
+#     GIT_TAG c2c96983bdd7ef21f7982d8777274e3a13a5e4a4
+#     GIT_SHALLOW FALSE
+#     GIT_PROGRESS TRUE
+#     OVERRIDE_FIND_PACKAGE
+#     )
+# set(OSQP_BUILD_SHARED_LIB OFF)
+# set(OSQP_BUILD_DEMO_EXE OFF)
+# set(OSQP_ENABLE_INTERRUPT OFF)
+# FetchContent_MakeAvailable( osqp )
+# add_library(osqp::osqp ALIAS osqpstatic)
 
 # FetchContent_Declare(
 #     nasoq
@@ -79,7 +79,7 @@ target_link_libraries( bbwlib
     PUBLIC
         Eigen3::Eigen
     PRIVATE
-        osqp::osqp
+        # osqp::osqp
         # nasoq::nasoqeigen
         igl::core
 )
