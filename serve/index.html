@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>skinning demo</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+        <style>
+            body {
+                font-family: Monospace;
+                background-color: #f0f0f0;
+                margin: 0px;
+                overflow: hidden;
+            }
+            
+            #gui {
+                position: absolute;
+                top: 0;
+                left: 0;
+                
+                padding-top: 10px;
+                padding-left: 10px;
+                text-align: left;
+                height: 100px;
+                /*
+                Setting display to inline-block instead of width 100% so that
+                mouse events fall through to the THREE.js view to the right of the contents.
+                */
+                display: inline-block;
+            }
+            #title {
+                /* border-bottom: 1px solid #000; */
+                text-decoration: underline;
+            }
+            
+            .control_group
+            {
+                /* border-top: 1px dotted #000; */
+                padding: 5px;
+            }
+            
+            .control_group_last
+            {
+                /* border-bottom: 1px dotted #000; */
+            }
+            
+            .clearfix
+            {
+                clear: both;
+            }
+            
+            .small
+            {
+                font-size: 80%;
+            }
+            
+            .small-link
+            {
+                text-decoration: underline;
+                font-size: 80%;
+                cursor: pointer;
+            }
+        </style>
+    </head>
+    <body>
+        
+        <div id="gui">
+        <div id="title">Bounded Biharmonic Weights</div>
+        
+        <div>
+            <form id="variables" action="">
+            <div class="control_group">
+            Mouse:<br>
+                <label for="mouse_add_handles"><input type="radio" name="mouse_mode" value="mouse_add_handles" id="mouse_add_handles" checked>Add Handles</label><br>
+                <label for="mouse_manipulate_handles"><input type="radio" name="mouse_mode" value="mouse_manipulate_handles" id="mouse_manipulate_handles">Manipulate Handles<br><span class="small">(shift-drag for rotation, alt-drag for scale)</span></label>
+            </div>
+            <div class="control_group">
+                <input type="button" value="Clear handles" id="clear_handles">
+                <input type="button" value="Reset transforms" id="reset_transforms">
+            </div>
+            <div class="control_group">
+            Handle presets:<br>
+                <span class="small-link handle_preset" id="woody_one"  data-handle-preset="[ 691 ]">woody one</span>
+                <span class="small-link handle_preset" id="woody_five" data-handle-preset="[183, 344, 536, 406, 282]">woody five</span>
+                <span class="small-link handle_preset" id="circle_one" data-handle-preset="[ 91 ]">circle one</span>
+                <span class="small-link handle_preset" id="circle_two" data-handle-preset="[ 20, 150 ]">circle two</span>
+            </div>
+            <div class="control_group">
+                OBJ file URL:
+                <span class="small-link URL" id="obj_URL_woody" for="obj_URL" href="examples/woody-norm.obj">woody</span>
+                <span class="small-link URL" id="obj_URL_circle" for="obj_URL" href="examples/simple-uvs.obj">circle</span>
+                <span class="small-link URL" id="obj_URL_square" for="obj_URL" href="examples/square.obj">square</span>
+                <br>
+                <input type="text" name="obj_URL" value="" id="obj_URL" size=50 />
+                <br />
+                Texture map URL:
+                <span class="small-link URL" id="texture_map_URL_wood" for="texture_map_URL" href="examples/woody.png">wood</span>
+                <span class="small-link URL" id="texture_map_URL_grid" for="texture_map_URL" href="examples/uv_grid.jpg">grid</span>
+                <span class="small-link URL" id="texture_map_URL_white" for="texture_map_URL" href="examples/white.png">white</span>
+                <br>
+                <input type="text" name="texture_map_URL" value="" id="texture_map_URL" size=50 />
+            </div>
+            <div class="control_group">
+            Visualize weights for handle:
+                <select name="visualize_weights" id="visualize_weights">
+                <option value="off" selected="selected">Off</option>
+                </select>
+            </div>
+            <div class="control_group control_group_last">
+            Solver mode:
+                <select name="solver_mode" id="solver_mode">
+                <option value="bounded" selected="selected">Bounded dense</option>
+                <!-- <option value="bounded-brand-chen">Bounded Brand-Chen</option> -->
+                <option value="unbounded">Unbounded</option>
+                </select>
+            </div>
+            <div class="control_group control_group_last">
+            Laplacian mode:
+                <select name="laplacian_mode" id="laplacian_mode">
+                <option value="graph" selected="selected">Graph</option>
+                <option value="cotangent">Cotangent with Barycentric Area</option>
+                </select>
+            </div>
+            <div class="control_group">
+                Save: <input type="button" value="Save weights" id="save_weights"><br>
+                Load: <input type="file" value="Load weights" id="load_weights" style="width:200px">
+            </div>
+            </form>
+        </div>
+        
+        <!-- This #progress didn't work. Long JavaScript computations don't allow the screen to refresh, so setting the text doesn't show up. -->
+        <!-- <div id="progress_holder">Status: <span id="progress">Idle</span></div> -->
+        </div>
+        
+        <script src="js/Blob.js"></script>
+        <script src="js/FileSaver.js"></script>
+        <script src="js/threejs/three.min.js"></script>
+        <script src="js/threejs/loaders/OBJLoader.js"></script>
+        <script src="js/threejs/libs/stats.min.js"></script>
+        <script src="js/numeric-1.2.6.js"></script>
+        
+        <script type="x-shader/x-vertex" id="vertShaderWeights">
+            attribute float weight;
+            varying float vweight;
+            void main() {
+                vweight = weight;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+            }
+        </script>
+        <script type="x-shader/x-fragment" id="fragShaderWeights">
+        varying float vweight;
+        void main() {
+            vec3 two = vec3( 1., .5, 1. );
+            vec3 one = vec3( 1., .5, .5 );
+            vec3 zero = vec3( 1., 1., 1. );
+            vec3 minus_one = vec3( .5, .5, 1. );
+            
+            if( vweight > 1.0 )
+            {
+                gl_FragColor = vec4( (vweight-1.)*two + (1.-(vweight-1.))*one, 1.0 );
+            }
+            else if( vweight > 0.0 )
+            {
+                gl_FragColor = vec4( (vweight)*one + (1.-vweight)*zero, 1.0 );
+            }
+            else
+            {
+                gl_FragColor = vec4( (vweight+1.)*zero + (1.-(vweight+1.))*minus_one, 1.0 );
+            }
+        }
+        </script>
+        
+        <script>
+            "use strict";
+
+            let the_mesh, the_faces, the_undeformed_vertices, the_handles = [], the_transforms = [], the_weights = null;
+            let the_texture, the_mesh_container, the_handle_objects = [];
+            let foo;
+
+            let container, stats;
+            let camera, scene, projector, renderer;
+            let plane;
+
+            let mouse = new THREE.Vector2(),
+            offset = new THREE.Vector3(),
+            INTERSECTED, SELECTED;
+
+            function init() {
+                init_3D();
+                init_Widgets();
+                init_bbw();
+                needs_redisplay();
+            }
+
+            function init_3D() {
+
+                container = document.createElement( 'div' );
+                document.body.appendChild( container );
+
+                let lrtb = compute_orthographic_left_right_top_bottom( window.innerWidth, window.innerHeight );
+                camera = new THREE.OrthographicCamera( lrtb[0], lrtb[1], lrtb[2], lrtb[3], 1, 10000 );
+                camera.position.z = 1000;
+
+                scene = new THREE.Scene();
+                
+                // Prepare a texture object.
+                the_texture = new THREE.Texture();
+                
+                // Prepare for mouse picking with a plane.
+                plane = new THREE.Mesh( new THREE.PlaneGeometry( 5000, 5000, 8, 8 ), new THREE.MeshBasicMaterial( { color: 0xff0000, opacity: 0.25, transparent: true, wireframe: true } ) );
+                plane.visible = false;
+                scene.add( plane );
+
+                projector = new THREE.Projector();
+
+                renderer = new THREE.WebGLRenderer( { antialias: true } );
+                renderer.setClearColor( 0xffffff );
+                renderer.setSize( window.innerWidth, window.innerHeight );
+                renderer.sortObjects = false;
+
+                container.appendChild( renderer.domElement );
+
+                stats = new Stats();
+                stats.domElement.style.position = 'absolute';
+                stats.domElement.style.top = '0px';
+                stats.domElement.style.right = '0px';
+                container.appendChild( stats.domElement );
+
+                renderer.domElement.addEventListener( 'mousemove', onDocumentMouseMove, false );
+                renderer.domElement.addEventListener( 'mousedown', onDocumentMouseDown, false );
+                renderer.domElement.addEventListener( 'mouseup', onDocumentMouseUp, false );
+
+                //
+
+                window.addEventListener( 'resize', onWindowResize, false );
+
+            }
+            
+            function init_Widgets()
+            {
+                document.getElementById("texture_map_URL").addEventListener( "change", function() {
+                    load_texture( this.value );
+                    // console.log( $(this).val() );
+                    } );
+                document.getElementById("obj_URL").addEventListener( "change", function() {
+                    load_OBJ( this.value );
+                    // console.log( $(this).val() );
+                    } );
+                
+                document.querySelectorAll('input[name=mouse_mode]').forEach( el => el.addEventListener( "change", function() {
+                    /// Recompute weights when we enter manipulate mode.
+                    if( document.querySelector('input[name=mouse_mode]:checked').value === 'mouse_manipulate_handles' )
+                    {
+                        compute_bbw_weights();
+                        needs_redisplay();
+                    }
+                } ) );
+                
+                document.getElementById("visualize_weights").addEventListener( "change", function() {
+                    needs_redisplay();
+                    
+                    if( the_mesh === undefined ) return;
+                    
+                    const val = document.querySelector('#visualize_weights').value;
+                    if( val === 'off' )
+                    {
+                        the_mesh_container.remove( the_mesh );
+                        the_mesh = new THREE.Mesh( the_mesh.geometry.clone(), create_default_material() );
+                        the_mesh_container.add( the_mesh );
+                        return;
+                    }
+                    
+                    const handle_index = parseInt( val );
+                    // If we're still in add mode, we may not yet have weights.
+                    if( the_weights === null || handle_index >= the_weights[0].length )
+                    {
+                        console.error( "Can't visualize the weights because they haven't been computed yet." );
+                        return;
+                    }
+                    
+                    // If we're here, then we should be good.
+                    the_mesh_container.remove( the_mesh );
+                    the_mesh = new THREE.Mesh( the_mesh.geometry.clone(), create_weights_material( handle_index ) );
+                    the_mesh_container.add( the_mesh );
+                    } );
+                
+                document.getElementById("clear_handles").addEventListener( "click", function() {
+                    reset_handles();
+                    } );
+                document.getElementById("reset_transforms").addEventListener( "click", function() {
+                    reset_transforms();
+                    } );
+                
+                document.getElementById("save_weights").addEventListener( "click", function() {
+                    const globals = save_weights();
+                    const blob = new Blob([ JSON.stringify( globals ) ], {type: "application/json"});
+                    saveAs( blob, "skinning_weights.json" );
+                    } );
+                document.getElementById("load_weights").addEventListener( "change", function( evt ) {
+                    const files = evt.target.files;
+                    if( files.length === 0 )
+                    {
+                        console.error( "Load weights: No file loaded." );
+                        return;
+                    }
+                    else if( files.length > 1 )
+                    {
+                        console.error( "Load weights can't load more than one file at a time." );
+                        return;
+                    }
+                    
+                    const file = files[0];
+                    // UPDATE: For some reason, the file.type is never application/json on Windows.
+                    if( false )
+                    // if( file.type !== 'application/json' )
+                    {
+                        console.error( "Load weights can only accept JSON files." );
+                        return;
+                    }
+                    
+                    let reader = new FileReader();
+                    reader.onload = function( loaded_event ) {
+                        const globals = JSON.parse( loaded_event.target.result );
+                        load_weights( globals );
+                        };
+                    reader.readAsText( file );
+                    } );
+                
+                // Set up small-link handle presets.
+                document.querySelectorAll( ".small-link.handle_preset" ).forEach( el => el.addEventListener( 'click', function( evt ) {
+                    evt.preventDefault(); // Prevent the default click behavior
+                    
+                    // Setup the handles.
+                    const changed = setup_handles( JSON.parse( this.getAttribute('data-handle-preset') ) );
+                    if( changed )
+                    {
+                        /// Recompute the weights and switch to manipulate mode.
+                        compute_bbw_weights();
+                        document.getElementById('mouse_manipulate_handles').checked = true;
+                    }
+                    } ) );
+                
+                // Set up small-link URL's to "change" their respective "for" tags.
+                document.querySelectorAll('.small-link.URL').forEach( el => el.addEventListener( 'click', function( evt ) {
+                    evt.preventDefault(); // Prevent the default click behavior
+                    
+                    const target = document.getElementById( this.getAttribute('for') );
+                    target.value = this.getAttribute('href');
+                    // Trigger a change event
+                    target.dispatchEvent(new Event('change'));
+                }) );
+                
+                // By default, use the grid texture.
+                document.getElementById( "texture_map_URL_grid" ).click();
+                // By default, use the circle OBJ.
+                document.getElementById( "obj_URL_circle" ).click();
+            }
+            
+            function save_weights()
+            {
+                let globals = {};
+                globals.texture_URL = document.getElementById("texture_map_URL").value;
+                globals.obj_URL = document.getElementById("obj_URL").value;
+                globals.handles = the_handles;
+                globals.transforms = the_transforms;
+                globals.weights = the_weights;
+                return globals;
+            }
+            function load_weights( globals )
+            {
+                let texture_map_URL = document.getElementById("texture_map_URL");
+                texture_map_URL.value = globals.texture_URL;
+                texture_map_URL.dispatchEvent(new Event('change'));
+                
+                // Don't call change(), because we want to call it manually so we can use
+                // the success callback.
+                document.getElementById("obj_URL").value = globals.obj_URL;
+                load_OBJ( globals.obj_URL, function() {
+                    // After loading the OBJ, setup the handles, transforms, and weights.
+                    setup_handles( globals.handles );
+                    // UPDATE: We can't just set the_transforms, because the GUI handles wouldn't match.
+                    // the_transforms = globals.transforms;
+                    set_transforms( globals.transforms );
+                    the_weights = globals.weights;
+                    
+                    // Apply the transforms.
+                    apply_linear_blend_skinning();
+                    
+                    // Switch to manipulate mode.
+                    document.getElementById('mouse_manipulate_handles').checked = true;
+                    } );
+            }
+            
+            function load_texture( URL )
+            {
+                /// texture
+                let manager = new THREE.LoadingManager();
+                manager.onProgress = function ( item, loaded, total ) {
+                    console.log( item, loaded, total );
+                };
+                let loader = new THREE.ImageLoader( manager );
+                loader.load( URL, function ( image ) {
+                    needs_redisplay();
+                    
+                    the_texture.image = image;
+                    the_texture.needsUpdate = true;
+                } );
+            }
+            function load_OBJ( URL, success_callback )
+            {
+                /// model
+                let manager = new THREE.LoadingManager();
+                manager.onProgress = function ( item, loaded, total ) {
+                    console.log( item, loaded, total );
+                };
+                let loader = new THREE.OBJLoader( manager );
+                loader.load( URL, function ( object ) {
+                    needs_redisplay();
+                    
+                    // Upon success, remove the current model and reset the handles.
+                    reset_handles();
+                    if( the_mesh_container !== undefined ) scene.remove( the_mesh_container );
+                    
+                    the_mesh_container = object;
+                    object.traverse( function ( child ) {
+                        if ( child instanceof THREE.Mesh ) {
+                            the_mesh = child;
+                            
+                            child.material = create_default_material();
+                            
+                            // Center at 0,0,0 and Scale to 200 pixels.
+                            // TODO Q: Should this instead be in the camera parameters?
+                            // A1: No, because it would be hard to specify onscreen elements in pixels.
+                            child.geometry.computeBoundingSphere();
+                            const center = child.geometry.boundingSphere.center;
+                            child.geometry.applyMatrix( (new THREE.Matrix4()).makeTranslation( -center.x, -center.y, -center.z ) );
+                            const scale = 200./child.geometry.boundingSphere.radius;
+                            child.geometry.applyMatrix( (new THREE.Matrix4()).makeScale( scale, scale, scale ) );
+                            
+                            if( child.geometry.faceVertexUvs[0].length === 0 ) assignUVs( child.geometry );
+                            
+                            save_faces_and_undeformed_vertices();
+                        }
+                    } );
+                    
+                    scene.add( object );
+                    
+                    document.getElementById("mouse_add_handles").dispatchEvent(new Event('change'));
+                    
+                    if( success_callback !== undefined ) success_callback();
+                } );
+            }
+            function assignUVs( geometry )
+            {
+                // From: http://stackoverflow.com/questions/20774648/three-js-generate-uv-coordinate
+                
+                geometry.computeBoundingBox();
+                
+                const max     = geometry.boundingBox.max;
+                const min     = geometry.boundingBox.min;
+                
+                const offset  = new THREE.Vector2(0 - min.x, 0 - min.y);
+                const range   = new THREE.Vector2(max.x - min.x, max.y - min.y);
+                
+                geometry.faceVertexUvs[0] = [];
+                const faces = geometry.faces;
+                
+                for (i = 0; i < geometry.faces.length ; i++) {
+                    
+                    const v1 = geometry.vertices[faces[i].a];
+                    const v2 = geometry.vertices[faces[i].b];
+                    const v3 = geometry.vertices[faces[i].c];
+                    
+                    geometry.faceVertexUvs[0].push([
+                        new THREE.Vector2( ( v1.x + offset.x ) / range.x , ( v1.y + offset.y ) / range.y ),
+                        new THREE.Vector2( ( v2.x + offset.x ) / range.x , ( v2.y + offset.y ) / range.y ),
+                        new THREE.Vector2( ( v3.x + offset.x ) / range.x , ( v3.y + offset.y ) / range.y )
+                        ]);
+                    
+                }
+                
+                geometry.uvsNeedUpdate = true;
+            }
+            
+            function create_default_material()
+            {
+                let material = new THREE.MeshBasicMaterial( { color: 0xffffff } );
+                material.map = the_texture;
+                material.side = THREE.DoubleSide;
+                return material;
+            }
+            function create_weights_material( handle_index )
+            {
+                const material = new THREE.ShaderMaterial( {
+                    attributes: {
+                        weight: { type: 'f', value: numeric.transpose( the_weights )[ handle_index ] }
+                    },
+                    vertexShader: document.getElementById('vertShaderWeights').text,
+                    fragmentShader: document.getElementById('fragShaderWeights').text
+                    } );
+                return material;
+            }
+            
+            function save_faces_and_undeformed_vertices()
+            {
+                the_faces = [];
+                for( let i = 0; i < the_mesh.geometry.faces.length; ++i )
+                {
+                    the_faces.push([
+                        the_mesh.geometry.faces[i].a,
+                        the_mesh.geometry.faces[i].b,
+                        the_mesh.geometry.faces[i].c
+                        ]);
+                }
+                
+                the_undeformed_vertices = [];
+                for( let i = 0; i < the_mesh.geometry.vertices.length; ++i )
+                {
+                    the_undeformed_vertices.push([
+                        the_mesh.geometry.vertices[i].x,
+                        the_mesh.geometry.vertices[i].y
+                        // The `bbw()` and `linear_blend_skin_2D()` functions are promised 2D vertices.
+                        // the_mesh.geometry.vertices[i].z
+                        ]);
+                }
+            }
+            
+            function add_handle( vertex_index )
+            {
+                /// 1 Add the index to the list of handle indices.
+                /// 2 Add a new identity transform matrix to the list of transforms.
+                /// 2 Create three.js object for it.
+                
+                /// If the vertex_index is already in the list of handles, abort.
+                if( the_handles.indexOf( vertex_index ) !== -1 )
+                {
+                    console.error( "add_handle(): Refusing to add a vertex index that is already a handle." );
+                    return;
+                }
+                
+                /// 1
+                the_handles.push( vertex_index );
+                /// 2
+                the_transforms.push( numeric.identity(3) );
+                
+                /// 3
+                const geometry = new THREE.BoxGeometry( 20, 20, 20 );
+                let object = new THREE.Mesh( geometry, new THREE.MeshBasicMaterial( { color: 0xaa33aa } ) );
+                object.originalColorHex = object.material.color.getHex();
+                
+                const handle_vertex = the_undeformed_vertices[ vertex_index ];
+                // Store the handle index (it's the one we just added)
+                object.handle_index = the_handles.length-1;
+                
+                object.position.x = handle_vertex[0];
+                object.position.y = handle_vertex[1];
+                object.position.z = 1;
+                
+                // Store the original position.
+                object.original_position = object.position.clone();
+
+                scene.add( object );
+                
+                the_handle_objects.push( object );
+                
+                const visualizeWeights = document.getElementById('visualize_weights');
+                if( visualizeWeights ) {
+                    const newOption = document.createElement('option');
+                    newOption.value = the_handles.length - 1;
+                    newOption.textContent = the_handles.length - 1;
+                    visualizeWeights.appendChild( newOption );
+                }
+            }
+            function reset_transforms()
+            {
+                needs_redisplay();
+                
+                for( let i = 0; i < the_transforms.length; ++i )
+                {
+                    the_transforms[i] = numeric.identity(3);
+                    
+                    let handle_object = the_handle_objects[i];
+                    handle_object.position.copy( handle_object.original_position );
+                    
+                    handle_object.rotation.z = 0.;
+                    handle_object.scale.x = 1.;
+                    handle_object.scale.y = 1.;
+                }
+                apply_linear_blend_skinning();
+            }
+            function reset_handles()
+            {
+                needs_redisplay();
+                
+                reset_vertices_to_undeformed();
+                
+                the_handles = [];
+                the_transforms = [];
+                the_weights = null;
+                
+                // Remove the GUI object.
+                for( let i = 0; i < the_handle_objects.length; ++i ) scene.remove( the_handle_objects[ i ] );
+                the_handle_objects = [];
+                
+                INTERSECTED = SELECTED = null;
+                
+                // Remove the menu options.
+                document.querySelectorAll("#visualize_weights option:not(:first-child)").forEach( el => el.remove() );
+            }
+            function setup_handles( handles )
+            {
+                // We don't need to call needs_redisplay() because we call reset_handles() which does.
+                
+                // If we are setting up what we already have, do nothing.
+                if( handles.length == the_handles.length && numeric.all( numeric.eq( the_handles, handles ) ) )
+                {
+                    console.error( "setup_handles() called with the handles that are already set." );
+                    return false;
+                }
+                
+                // If the handles contain invalid indices, abort.
+                for( let i = 0; i < handles.length; ++i )
+                {
+                    if( handles[i] < 0 || handles[i] >= the_mesh.geometry.vertices.length )
+                    {
+                        console.error( "setup_handles() received invalid vertex index: " + handles[i] );
+                        return;
+                    }
+                }
+                
+                /// Initialize the list of handles and transforms.
+                reset_handles();
+                
+                /// Add the handles
+                for( let i = 0; i < handles.length; ++i ) add_handle( handles[i] );
+                
+                /// Compute bbw weights.
+                // UPDATE: Wait to do this.
+                // compute_bbw_weights();
+                
+                return true;
+            }
+            function compute_bbw_weights()
+            {
+                if( the_handles.length === 0 ) return;
+                
+                const solver_mode = document.querySelector("#solver_mode").value;
+                const laplacian_mode = document.querySelector("#laplacian_mode").value;
+                the_weights = bbw( the_undeformed_vertices, the_faces, the_handles, laplacian_mode, solver_mode );
+                apply_linear_blend_skinning();
+            }
+            function update_handle_transform( handle_index )
+            {
+                const handle_object = the_handle_objects[ handle_index ];
+                
+                // The transformation is T*R*S, where T is translation, R is rotation, S is scale.
+                let T = numeric.identity(3);
+                let R = numeric.identity(3);
+                let S = numeric.identity(3);
+                // But we want rotation and scaling to be centered at the handle_object's position,
+                // so we need two more translations.
+                let Center = numeric.identity(3);
+                let CenterInv = numeric.identity(3);
+                
+                let translation = handle_object.position.clone().sub( handle_object.original_position );
+                T[0][2] = translation.x;
+                T[1][2] = translation.y;
+                
+                Center[0][2] = -handle_object.original_position.x;
+                Center[1][2] = -handle_object.original_position.y;
+                CenterInv[0][2] = handle_object.original_position.x;
+                CenterInv[1][2] = handle_object.original_position.y;
+                
+                const cos_theta = Math.cos( handle_object.rotation.z );
+                const sin_theta = Math.sin( handle_object.rotation.z );
+                R[0][0] = R[1][1] = cos_theta;
+                R[0][1] = -sin_theta;
+                R[1][0] = sin_theta;
+                
+                S[0][0] = handle_object.scale.x;
+                S[1][1] = handle_object.scale.y;
+                
+                the_transforms[ handle_index ] = numeric.dot( T, numeric.dot( CenterInv, numeric.dot( R, numeric.dot( S, Center ) ) ) );
+                
+                apply_linear_blend_skinning();
+            }
+            function set_transforms( transforms )
+            {
+                if( the_transforms.length !== transforms.length )
+                {
+                    console.error( "set_transforms() called with the wrong number of transforms." );
+                    return;
+                }
+                
+                for( let i = 0; i < transforms.length; ++i )
+                {
+                    set_transform( i, transforms[i] );
+                }
+            }
+            function set_transform( transform_index, transform )
+            {
+                if( transform_index < 0 || transform_index >= the_transforms.length )
+                {
+                    console.error( "set_transform() called with an invalid transform index." );
+                    return;
+                }
+                
+                the_transforms[transform_index] = transform;
+                
+                /// Now we need to reverse update_handle_transform( handle_index ).
+                /// The relationship between the handle object and the transform matrix is:
+                ///    transform_matrix = numeric.dot( T, numeric.dot( CenterInv, numeric.dot( R, numeric.dot( S, Center ) ) ) );
+                /// where Center is the transformation that take's the handle's original position to the origin.
+                const handle_object = the_handle_objects[ transform_index ];
+                
+                const Center = numeric.identity(3);
+                const CenterInv = numeric.identity(3);
+                
+                Center[0][2] = -handle_object.original_position.x;
+                Center[1][2] = -handle_object.original_position.y;
+                CenterInv[0][2] = handle_object.original_position.x;
+                CenterInv[1][2] = handle_object.original_position.y;
+                
+                // Right-multiply CenterInv to remove it.
+                // T*CenterInv*R*S
+                const TCenterInvRS = numeric.dot( transform, CenterInv );
+                
+                // The upper 2x2 matrix has only scale and rotation.
+                // The first column's two elements squared should sum to 1. Whatever they sum to is sx^2.
+                // The same with the second column gives us sy^2.
+                const sx = Math.sqrt( TCenterInvRS[0][0]*TCenterInvRS[0][0] + TCenterInvRS[1][0]*TCenterInvRS[1][0] );
+                const sy = Math.sqrt( TCenterInvRS[0][1]*TCenterInvRS[0][1] + TCenterInvRS[1][1]*TCenterInvRS[1][1] );
+                
+                const Sinv = numeric.identity(3);
+                Sinv[0][0] = 1./sx;
+                Sinv[1][1] = 1./sy;
+                
+                const TCenterInvR = numeric.dot( TCenterInvRS, Sinv );
+                
+                // The upper-left of the 2x2 is the rotation matrix R.
+                let R = numeric.identity(3);
+                R[0][0] = TCenterInvR[0][0];
+                R[0][1] = TCenterInvR[0][1];
+                R[1][0] = TCenterInvR[1][0];
+                R[1][1] = TCenterInvR[1][1];
+
+                
+                // The inverse of the rotation matrix is its transpose.
+                const T = numeric.dot( numeric.dot( TCenterInvR, numeric.transpose( R ) ), Center );
+                
+                // Scale
+                handle_object.scale.x = sx;
+                handle_object.scale.y = sy;
+                // Use cosine and sine to obtain the angle.
+                handle_object.rotation.z = Math.atan2( R[1][0], R[0][0] );
+                // Translation
+                handle_object.position.copy( handle_object.original_position ).add( new THREE.Vector3( T[0][2], T[1][2], 0. ) );
+                
+                // Debugging. Call update_handle_transform() and see if the matrix changed.
+                // UPDATE: It doesn't change. Test passed.
+                // update_handle_transform( transform_index );
+                // console.log( numeric.sub( the_transforms[ transform_index ], transform ) );
+            }
+            function apply_linear_blend_skinning()
+            {
+                // Do nothing without weights.
+                if( the_weights === null ) return;
+                
+                const deformed_vertices = linear_blend_skin_2D( the_undeformed_vertices, the_weights, the_transforms );
+                
+                // Update the mesh.
+                for( let i = 0; i < the_mesh.geometry.vertices.length; ++i )
+                {
+                    the_mesh.geometry.vertices[i].x = deformed_vertices[i][0];
+                    the_mesh.geometry.vertices[i].y = deformed_vertices[i][1];
+                }
+                
+                the_mesh.geometry.verticesNeedUpdate = true;
+                needs_redisplay();
+            }
+            function reset_vertices_to_undeformed()
+            {
+                // Nothing to reset.
+                if( !the_undeformed_vertices || the_undeformed_vertices.length == 0 ) return;
+                
+                // Update the mesh.
+                for( let i = 0; i < the_mesh.geometry.vertices.length; ++i )
+                {
+                    the_mesh.geometry.vertices[i].x = the_undeformed_vertices[i][0];
+                    the_mesh.geometry.vertices[i].y = the_undeformed_vertices[i][1];
+                }
+                
+                the_mesh.geometry.verticesNeedUpdate = true;
+            }
+
+            function compute_orthographic_left_right_top_bottom( width, height )
+            {
+                return [ -width/2, width/2, height/2, -height/2 ];
+            }
+
+            function onWindowResize() {
+                needs_redisplay();
+                
+                const lrtb = compute_orthographic_left_right_top_bottom( window.innerWidth, window.innerHeight );
+                camera.left = lrtb[0];
+                camera.right = lrtb[1];
+                camera.top = lrtb[2];
+                camera.bottom = lrtb[3];
+                camera.updateProjectionMatrix();
+
+                renderer.setSize( window.innerWidth, window.innerHeight );
+            }
+
+            function onDocumentMouseMove( event ) {
+                needs_redisplay();
+                
+                event.preventDefault();
+                
+                // Do nothing if we're not manipulating handles.
+                if( document.querySelector('input[name=mouse_mode]:checked').value !== 'mouse_manipulate_handles' ) return;
+                
+                set_mouse( event );
+                
+                const vector = new THREE.Vector3( mouse.x, mouse.y, 0.5 );
+                const raycaster = projector.pickingRay( vector, camera );
+
+                if ( SELECTED ) {
+
+                    const intersects = raycaster.intersectObject( plane );
+                    
+                    // Rotation
+                    if( event.shiftKey )
+                    {
+                        const dx = plane.position.x - intersects[ 0 ].point.x;
+                        const dr = 2*dx/window.innerWidth * 2.*Math.PI;
+                        SELECTED.rotation.z = dr;
+                    }
+                    // Scale
+                    else if( event.altKey )
+                    {
+                        const dx = plane.position.x - intersects[ 0 ].point.x;
+                        const ds = Math.exp( -4*dx/window.innerWidth );
+                        SELECTED.scale.x = ds;
+                        SELECTED.scale.y = ds;
+                    }
+                    // Translation
+                    else
+                    {
+                        SELECTED.position.copy( intersects[ 0 ].point );
+                    }
+                    
+                    // Update the handle transformation.
+                    update_handle_transform( SELECTED.handle_index );
+                    
+                    
+                    // Keep the plane centered at the last mouse location so the mouse never leaves it
+                    // and we can continue to intersect with it.
+                    // UPDATE: Don't. It makes things easier.
+                    // plane.position.copy( SELECTED.position );
+                    return;
+                
+                }
+
+
+                const intersects = raycaster.intersectObjects( the_handle_objects );
+
+                if ( intersects.length > 0 ) {
+
+                    if ( INTERSECTED !== intersects[ 0 ].object ) {
+
+                        if ( INTERSECTED ) INTERSECTED.material.color.setHex( INTERSECTED.originalColorHex );
+
+                        INTERSECTED = intersects[ 0 ].object;
+                        INTERSECTED.material.color.setHex( 0xff0000 );
+                    }
+
+                    container.style.cursor = 'pointer';
+
+                } else {
+
+                    if ( INTERSECTED ) INTERSECTED.material.color.setHex( INTERSECTED.originalColorHex );
+
+                    INTERSECTED = null;
+
+                    container.style.cursor = 'auto';
+
+                }
+
+            }
+
+            function onDocumentMouseDown( event ) {
+                needs_redisplay();
+                
+                event.preventDefault();
+                
+                set_mouse( event );
+                
+                const vector = new THREE.Vector3( mouse.x, mouse.y, 0.5 );
+                const raycaster = projector.pickingRay( vector, camera );
+                
+                // If we're not manipulating handles.
+                const mouse_mode = document.querySelector('input[name=mouse_mode]:checked').value;
+                
+                if( mouse_mode === 'mouse_add_handles' )
+                {
+                    if( raycaster.intersectObjects( the_handle_objects ).length > 0 )
+                    {
+                        console.error( "Refusing to add a handle under an existing one." );
+                        return;
+                    }
+                    
+                    const intersects = raycaster.intersectObject( the_mesh );
+                    if( intersects.length > 0 )
+                    {
+                        const pt = intersects[0].point;
+                        const face = intersects[0].face;
+                        const candidate_vertex_indices = [ face.a, face.b, face.c ];
+                        let min_dist2, min_vertex_index;
+                        for( let i = 0; i < candidate_vertex_indices.length; ++i )
+                        {
+                            const vertex_index = candidate_vertex_indices[i];
+                            const vertex_position = the_mesh.geometry.vertices[ vertex_index ];
+                            const dist2 = numeric.norm2Squared( numeric.sub( [ raycaster.ray.origin.x, raycaster.ray.origin.y ], [ vertex_position.x, vertex_position.y ] ) );
+                            
+                            if( min_dist2 === undefined || dist2 < min_dist2 )
+                            {
+                                min_dist2 = dist2;
+                                min_vertex_index = vertex_index;
+                            }
+                        }
+                        add_handle( min_vertex_index );
+                    }
+                }
+                else if( mouse_mode === 'mouse_manipulate_handles' )
+                {
+                    const intersects = raycaster.intersectObjects( the_handle_objects );
+    
+                    if ( intersects.length > 0 ) {
+    
+                        SELECTED = intersects[ 0 ].object;
+                        plane.position.copy( SELECTED.position );
+    
+                        container.style.cursor = 'move';
+                    }
+                }
+            }
+
+            function onDocumentMouseUp( event ) {
+                needs_redisplay();
+                
+                event.preventDefault();
+
+                if ( INTERSECTED ) {
+
+                    // plane.position.copy( INTERSECTED.position );
+
+                    SELECTED = null;
+
+                }
+
+                container.style.cursor = 'auto';
+
+            }
+            
+            function set_mouse( event ) {
+                mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+                mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+            }
+            
+            //
+
+            function needs_redisplay() {
+                
+                requestAnimationFrame( function() {
+                    render();
+                    stats.update();
+                    } );
+                
+            }
+
+            function render() {
+
+                renderer.render( scene, camera );
+
+            }
+            
+            let linear_blend_skin_2D;
+            let bbw;
+            function init_bbw() {
+                linear_blend_skin_2D = Module.linear_blend_skin_2D;
+                bbw = Module.bbw;
+            }
+            
+            var Module = { onRuntimeInitialized: init };
+        </script>
+        
+        <!-- Load the library last, after we establish the callback. -->
+        <script type="text/javascript" src="bbwbridge.js"></script>
+
+    </body>
+</html>

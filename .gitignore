@@ -1,0 +1,23 @@
+# Python
+__pycache__
+
+# CMake
+/build*
+
+# Compiled output
+serve/bbwbridge.js
+
+# vscode
+/.vscode
+/.vs
+/vsxmake2022
+/out
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Dear ImGUI
+/imgui.ini

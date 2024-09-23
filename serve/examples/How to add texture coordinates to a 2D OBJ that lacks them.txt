@@ -1,0 +1,18 @@
+>>> lines = open( 'woody.obj' ).readlines()
+>>> lines = [ l for l in lines if len( l ) > 0 and l[0] == 'v' ]
+>>> xys = [ l.split()[1:3] for l in lines ]
+>>> xys = [ map( float, xy ) for xy in xys ]
+>>> from numpy import *
+>>> xys = array( xys )
+>>> xys0 = xys - xys.min(axis=0)
+>>> xys0.min(0)
+>>> xys0/=xys0.max(0)
+>>> xys0.max(0)
+>>> for x, y in xys0:
+...     print 'vt', x, y
+
+Copy and paste the 'vt' lines into the OBJ.
+Then find/replace the f lines:
+
+Find: f ([0-9]+) ([0-9]+) ([0-9]+)
+Replace: f \1/\1 \2/\2 \3/\3
