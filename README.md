@@ -270,7 +270,7 @@ igl::SolverStatus status = igl::active_set(
     lx, ux,
     igl::active_set_params(),
     Z
-    );
+);
 
 std::cout << "Finished QP solve with status: " << status << '\n';
 
@@ -284,8 +284,8 @@ The program prints:
 ```
 Beginning QP solve
 Finished QP solve with status: 0
-   -0
+  0.5
 0.125
-   -0
+  0.5
 0.888
 ```
