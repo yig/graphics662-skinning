@@ -80,7 +80,9 @@ points $\mathbf{p} _ i = [ x _ i, y _ i ]$ for $(i =
 0$ to $N-1$), an array of $H$ $3\times 3$ transformation matrices $\mathbf{T} _ j$, 
 and an $N$-by-$H$ matrix $\mathbf{W}$ of weights, where $\mathbf{W} _ {ij}$ is the influence of transformation $\mathbf{T} _ j$ on point $\mathbf{p} _ i$. You should return an 
 array of transformed points $\mathbf{p} _ i'$, where  
+
 $$\mathbf{p} _ i' = \sum _ {j = 0}^{H - 1} \mathbf{W} _ {ij}\mathbf{T} _ j\mathbf{p} _ i$$
+
 The 2D vertices passed to `linear_blend_skin_2D()` are **not**
 homogeneous. You must add a 1 at the end to see translations.  
 
@@ -96,7 +98,9 @@ should return two $N$-by-$N$ *sparse* matrices, `Laplacian` and `Mass`. The
 simplest way to do this is to build what is known as the graph
 Laplacian $L$. Each row of the graph Laplacian applies the
 expression
+
 $$\mathbf{p} _ i - \frac{1}{|N(i)|}\sum _ {j \in N(i)}\mathbf{p} _ j$$
+
 when you multiply the matrix $L$ by a vector $\mathbf{p}$,
 where $N(i)$ are the neighboring vertex indices to vertex $i$ (that is, there is
 an edge between them).
@@ -104,7 +108,9 @@ an edge between them).
 As a matrix, it looks as follows. For every edge between vertex $i$ and $j$,
 $L _ {ij} = \frac{- 1}{|N(i)|}$. The diagonal elements
 $L _ {ii}$ are equal to minus the sum of the other elements in the row:
+
 $$L _ {ii} = - \sum _ {j \neq i}L _ {ij}$$
+
 What is the mass matrix? The mass matrix $M$ stores along its diagonal the
 “mass” associated with each vertex. For the graph Laplacian, it’s
 simply $|N(i)|$.
@@ -126,9 +132,13 @@ for automatically computing weights used in linear blend skinning. You
 will implement a miniature version with only point handles. Bounded
 biharmonic weights are computed by minimizing a Laplacian-based
 energy:  
+
 $$\min _ {w _ {i}}\int \| \Delta w _ {i}(\mathbf{p}) \|^2 \textrm{d}\mathbf{p}$$  
+
 such that  
+
 $$w _ {i}(\mathbf{h} _ {j}) = \delta _ {ij} \quad \text{ and } \quad 0 \leq w(p) \leq 1$$  
+
 where
 $w _ {i}$ are the weights for handle $i$, and the
 Kronecker delta $δ _ {ij} = 1$ if $i=j$ and 0 otherwise. The
@@ -137,9 +147,13 @@ be 1 at the location of the handle and 0 at the location of all other
 handles.
 
 The discrete version of this, using your matrices from above, is:
+
 $$\min _ {w _ {i}} w _ {i}^\top L^\top M L w _ {i}$$
+
 such that  
+
 $$w _ {i}\lbrack\mathbf{h} _ {j}\rbrack = \delta _ {ij} \quad \text{ and } \quad 0 \leq w _ i \leq 1$$  
+
 Again, the $w _ i$ are the vector of weights for handle $i$.
 The Kronecker delta constraint says that the weights for handle $i$
 must be 1 at the vertex index of the handle and 0 at the vertex index
@@ -161,15 +175,22 @@ it adds up to 1. (Divide each row by its sum.)
 
 Quadratic programming solves for the vector of unknowns "x" that
 minimize the expression:
+
 $$\frac{1}{2}\mathbf{x}^{\top}P\mathbf{x} + \mathbf{q}^{\top}\mathbf{x}$$
+
 subject to the constraint that
+
 $$A _ {eq}\mathbf{x} = \mathbf{b} _ {eq}$$
+
 and
+
 $$A _ {ieq}\mathbf{x} \geq \mathbf{b} _ {ieq}$$
 
 The quadratic part of the name quadratic programming come from the fact
 that the expressions they minimize,
+
 $$\frac{1}{2}\mathbf{x}^{\top}P\mathbf{x} + \mathbf{q}^{\top}\mathbf{x}$$
+
 are quadratic. (If you were to expand the matrix multiplication into the
 individual variables that make up $\mathbf{x}$, you would see that the
 polynomial is degree 2.)
