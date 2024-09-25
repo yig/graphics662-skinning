@@ -78,7 +78,7 @@ Write a function to evaluate linear blend skinning;
 fill in `linear_blend_skin_2D()`. You are given a vector of $N$ 2D
 points $\mathbf{p} _ i = [ x _ i, y _ i ]$ for $(i =
 0$ to $N-1$), an array of $H$ $3\times 3$ transformation matrices $\mathbf{T} _ j$, 
-and an $N$-by-$H$ matrix $\mathbf{W}$ of weights, where $\mathbf{W} _ {ij}$ is the influence of transformation $\mathbf{T} _ j$ on point $\mathbf{p} _ i$. You should return an 
+and an $N \times H$ matrix $\mathbf{W}$ of weights, where $\mathbf{W} _ {ij}$ is the influence of transformation $\mathbf{T} _ j$ on point $\mathbf{p} _ i$. You should return an 
 array of transformed points $\mathbf{p} _ i'$, where  
 
 $$\mathbf{p} _ i' = \sum _ {j = 0}^{H - 1} \mathbf{W} _ {ij}\mathbf{T} _ j\mathbf{p} _ i$$
