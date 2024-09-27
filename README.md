@@ -118,10 +118,10 @@ simply $|N(i)|$.
 **Bonus (20 points)**: Create a Cotangent Laplacian matrix and Voronoi or Barycentric
 mass matrix. This will make your code almost entirely agnostic to
 irregular triangulations. Your weights will look better. It’s not really that hard.
-See Section IIB in *On
+See the derivation in [Alec Jacobson's course notes](https://github.com/alecjacobson/geometry-processing-smoothing) or Section IIB in [*On
 Linear Variational Surface Deformation Methods* \[Botsch & Sorkine
-2007\] or Section 3.3 and 3.5 in *Discrete Differential-Geometry
-Operators for Triangulated 2-Manifolds* \[Meyer et al. 2003\].
+2007\]](https://igl.ethz.ch/projects/deformation-survey/deformation_survey.pdf) or Section 3.3 and 3.5 in [*Discrete Differential-Geometry
+Operators for Triangulated 2-Manifolds* \[Meyer et al. 2003\]](http://multires.caltech.edu/pubs/diffGeoOps.pdf).
 
 ### 3. Bounded Biharmonic Weights (40 points)
 
