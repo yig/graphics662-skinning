@@ -94,7 +94,7 @@ Compute the Laplacian and Mass matrices; fill in
 and `faces`, a sequence of $F$ triplets of integer indices into `vertices` (equivalently, an $F$-by-3 array). Each
 row of `faces` contains the indices of the three vertices that make up
 triangle $f$. Note that faces are always oriented counter-clockwise. You
-should return two $N$-by-$N$ *sparse* matrices, `Laplacian` and `Mass`. The
+should return two $N \times N$ *sparse* matrices, `Laplacian` and `Mass`. The
 simplest way to do this is to build what is known as the graph
 Laplacian $L$. Each row of the graph Laplacian applies the
 expression
