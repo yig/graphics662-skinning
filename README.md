@@ -93,7 +93,7 @@ Compute the Laplacian and Mass matrices; fill in
 2D points $\mathbf{p} _ i = [ x _ i, y _ i ]$ (equivalently, an $N$-by-2 matrix),
 and `faces`, a sequence of $F$ triplets of integer indices into `vertices` (equivalently, an $F$-by-3 array). Each
 row of `faces` contains the indices of the three vertices that make up
-triangle $f$. Note that faces are always oriented counter-clockwise. You
+triangle $f$. Faces are always oriented counter-clockwise. You
 should return two $N \times N$ *sparse* matrices, `Laplacian` and `Mass`. The
 simplest way to do this is to build what is known as the graph
 Laplacian $L$. Each row of the graph Laplacian applies the
@@ -109,7 +109,7 @@ As a matrix, it looks as follows. For every edge between vertex $i$ and $j$,
 $L _ {ij} = \frac{- 1}{|N(i)|}$. The diagonal elements
 $L _ {ii}$ are equal to minus the sum of the other elements in the row:
 
-$$L _ {ii} = - \sum _ {j \neq i}L _ {ij}$$
+$$L _ {ii} = - \sum _ {j \neq i}L _ {ij} = 1$$
 
 What is the mass matrix? The mass matrix $M$ stores along its diagonal the
 “mass” associated with each vertex. For the graph Laplacian, it’s
@@ -236,7 +236,7 @@ I have included [libigl](https://libigl.github.io)'s active set solver. You can 
 ```c++
 VectorXd Z = VectorXd::Zero( num_vertices );
 igl::SolverStatus status = igl::active_set(
-    A, B,
+    P, q,
     known,
     Y,
     Eigen::SparseMatrix<double>(), Eigen::VectorXd(),
@@ -249,6 +249,7 @@ igl::SolverStatus status = igl::active_set(
 
 The empty matrices tell it that we aren't using the general linear $A_{eq}$ and $A_{ieq}$ constraints.
 (You are free to do so if you choose.)
+Our linear term $q$ is a 0-vector.
 Note that the header documentation states that the `Z` output parameter can be passed empty, but that's not true.
 It must be initialized to the correct size.
 
@@ -258,12 +259,12 @@ It must be initialized to the correct size.
 ```c++
 // Make a 4x4 identity matrix for the quadratic term in our energy expression.
 int N = 4;
-SparseMatrix<double> A( N, N );
-A.setIdentity();
+SparseMatrix<double> P( N, N );
+P.setIdentity();
 
 // Make a 4-vector of -1/2 for the linear term in our energy expression.
 // The energy is minimized when the variables are equal to 0.5.
-VectorXd B = -.5*VectorXd::Ones( N );
+VectorXd q = -.5*VectorXd::Ones( N );
 
 // Make a vector for lower and upper bounds
 VectorXd lx = VectorXd::Zero( N );
@@ -283,7 +284,7 @@ std::cout << "Beginning QP solve\n";
 
 VectorXd Z = VectorXd::Zero( N );
 igl::SolverStatus status = igl::active_set(
-    A, B,
+    P, q,
     known,
     Y,
     Eigen::SparseMatrix<double>(), Eigen::VectorXd(),
