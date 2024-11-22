@@ -33,13 +33,13 @@ You will need [CMake](https://cmake.org/):
 ## Running
 
 Run by serving the contents of the `serve` directory. For example,
-    ```
-    cd serve
-    python3 -m http.server 8000
-    ```
-    and then browsing to <http://localhost:8000/>.
+```
+cd serve
+python3 -m http.server 8000
+```
+and then browsing to <http://localhost:8000/>.
 
-You don't need to re-start the server when you recompile. Just refresh your browser.
+You don't need to re-start the server when you recompile. Just refresh your browser. See [Debugging](#debugging) below for how to guarantee the browser cache is disabled.
 
 ## Writing
 
