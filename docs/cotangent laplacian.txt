@@ -1,0 +1,61 @@
+In the finite element method, we define a function f(x) that can be evaluated anywhere from values at vertices. We define f(x) as the weighted sum of three continuous basis functions:
+
+f(x) = fᵢ ɸᵢ(x) + fⱼ ɸⱼ(x) + fₖ ɸₖ(x) = ∑ fᵢ ɸᵢ(x)
+
+The basis functions are barycentric coordinates for the point. They sum to one, so also:
+
+f(x) = fᵢ (1 - ɸⱼ(x) - ɸₖ(x)) + fⱼ ɸⱼ(x) + fₖ ɸₖ(x)
+
+The Laplace operator at a vertex is defined as the divergence of the gradient at that vertex.
+We can express that by looking at a tiny area around the vertex (all incident triangles).
+Via the divergence theorem:
+
+∫_(triangles incident to a vertex i) ∇⋅∇ f(x) dA
+= ∫_(boundary of one-ring of vertex i) n(x)⋅∇f(x) dL
+= ∫_(boundary of one-ring of vertex i) n(x)⋅∇ ( ∑ fᵢ ɸᵢ(x) ) dL
+= ∫_(boundary of one-ring of vertex i) n(x)⋅( ∑ fᵢ ∇ɸᵢ(x) ) dL
+= ∑_(triangles ijk in one-ring of vertex i) l_jk nᵢ ⋅ ( ∑_( a ∈ {i,j,k} ) fₐ ∇ɸₐ(x) )
+
+where l_jk is the length of edge jk and nᵢ is the outward facing unit normal perpendicular to edge jk.
+
+Using ɸᵢ(x) = 1 - ɸⱼ(x) - ɸₖ(x) and ∇ɸᵢ(x) = - ∇ɸⱼ(x) - ∇ɸₖ(x), we can substitute for the fᵢ coefficient and write:
+
+∑_(triangles ijk in one-ring of vertex i) l_jk nᵢ ⋅ ( fᵢ ( - ∇ɸⱼ(x) - ∇ɸₖ(x) ) + fⱼ ∇ɸⱼ(x) + fₖ ∇ɸₖ(x) )
+= ∑_(triangles ijk in one-ring of vertex i) l_jk nᵢ ⋅ ( (fⱼ-fᵢ) ∇ɸⱼ(x) + (fₖ-fᵢ) ∇ɸₖ(x) )
+
+For a triangle ijk, let hᵢ be the height of vertex i from the opposite edge jk.
+The triangle area A_ijk = ½ l_jk hᵢ ⇔ hᵢ = 2 A_ijk / l_jk.
+Let ɑⱼ be the corner angle at vertex j. Then sin( ɑⱼ ) = hᵢ / l_ij = 2 A_ijk / ( l_jk l_ij ).
+
+Each basis function is piecewise linear in a triangle (a piece of plane), which means its gradient is piecewise constant.
+The gradient points in the direction of steepest ascent, which is to say, towards its vertex and perpendicular to the opposite edge.
+The magnitude of the gradient is based on the geometry of the triangle: rise/run.
+It's a basis function, so the rise from the opposite edge vⱼvₖ to vᵢ is 1.
+The run is the height hᵢ.
+Therefore,
+
+∇ɸᵢ(x) = -nᵢ/hᵢ = -nᵢ l_jk / (2 A_ijk)
+
+Substituting for ∇ɸₐ(x) in our original integral:
+
+∑_(triangles ijk in one-ring of vertex i) l_jk nᵢ ⋅ ( (fᵢ-fⱼ) nⱼ l_ik / (2 A_ijk) + (fᵢ-fₖ) nₖ l_ij / (2 A_ijk) )
+
+Because the edge normals are unit length, nᵢ⋅nⱼ = -cos( ɑₖ ), and nᵢ⋅nₖ = -cos( ɑⱼ ). Therefore:
+
+∑_(triangles ijk in one-ring of vertex i) l_jk ( (fⱼ-fᵢ) cos( ɑₖ ) l_ik / (2 A_ijk) + (fₖ-fᵢ) cos( ɑⱼ ) l_ij / (2 A_ijk) )
+= ∑_(triangles ijk in one-ring of vertex i) (fⱼ-fᵢ) cos( ɑₖ ) l_jk l_ik / (2 A_ijk) + (fₖ-fᵢ) cos( ɑⱼ ) l_jk l_ij / (2 A_ijk)
+= ∑_(triangles ijk in one-ring of vertex i) (fⱼ-fᵢ) cos( ɑₖ ) / sin( ɑₖ ) + (fₖ-fᵢ) cos( ɑⱼ ) / sin( ɑⱼ )
+= ∑_(triangles ijk in one-ring of vertex i) (fⱼ-fᵢ) cot( ɑₖ ) + (fₖ-fᵢ) cot( ɑⱼ )
+
+That's it! Iterate over every triangle in your mesh and contribute the fᵢ, fⱼ, and fₖ coefficients.
+Don't compute cotangent with trigonometric functions like sine and cosine.
+Calculate sine and the area from the side lengths.
+Calculate cosine from the dot product of the edge vectors.
+
+One final note: We computed the integral of the Laplacian in the entire one-ring, whose area is ∑_(triangles ijk in one-ring of vertex i) A_ijk. To compute a point-wise Laplacian at the vertex, divide by ∑ A_ijk. If you use this Laplacian to compute the integrated Laplacian over the mesh, we would then re-scale each vertex Laplacian by a "mass" or area that partitions the mesh. For this, the Barycentric or Voronoi area for a vertex is often used. The Barycentric area is particularly easy to compute: A_barycentric = A_ijk/3. Putting that together, we could pre-scale our weights by ∑ A_barycentric / ∑ A_ijk = ∑ (A_ijk/3) / ∑ A_ijk = 1/3.
+
+We could have equivalently computed the integral in the area obtained by connecting the midpoints of the edges ij and ik. The gradient is constant in the triangle. Via medial triangle identities, the outward facing normal is the same, too. Side lengths are exactly halved. So our original integral:
+
+∑_(triangles ijk in one-ring of vertex i) l_jk nᵢ ⋅ ( ∑_( a ∈ {i,j,k} ) fₐ ∇ɸₐ(x) )
+
+would only differ by scaling l_jk by one half. By factoring, that's scaling the entire expression by 1/2.
