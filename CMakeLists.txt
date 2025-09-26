@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14...3.30)
+cmake_minimum_required(VERSION 3.14...4.1)
 project(
     bbw
     LANGUAGES CXX C
@@ -94,7 +94,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "Emscripten")
     )
     
     ## Copy the executable to the `serve` directory
-    set_target_properties( bbwbridge PROPERTIES LINK_FLAGS "-s SINGLE_FILE=1 -s ALLOW_MEMORY_GROWTH=1" )
+    target_link_options( bbwbridge PROPERTIES LINK_FLAGS "-sSINGLE_FILE=1 -sALLOW_MEMORY_GROWTH=1" )
     add_custom_command( TARGET bbwbridge POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:bbwbridge> ${CMAKE_SOURCE_DIR}/serve/
     )
