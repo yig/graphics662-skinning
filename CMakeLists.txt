@@ -94,7 +94,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "Emscripten")
     )
     
     ## Copy the executable to the `serve` directory
-    target_link_options( bbwbridge PROPERTIES LINK_FLAGS "-sSINGLE_FILE=1 -sALLOW_MEMORY_GROWTH=1" )
+    target_link_options( bbwbridge PRIVATE "-sSINGLE_FILE=1" "-sALLOW_MEMORY_GROWTH=1" )
     add_custom_command( TARGET bbwbridge POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:bbwbridge> ${CMAKE_SOURCE_DIR}/serve/
     )
